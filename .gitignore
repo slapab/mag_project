@@ -1,0 +1,7 @@
+.settings/
+Debug
+Release/*
+!Release/*.bin
+!Release/*.hex
+!Release/*.elf
+/*.xml
