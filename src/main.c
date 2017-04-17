@@ -4,7 +4,7 @@
 #include "task.h"
 #include "log.h"
 
-/// Use one of below macros to select appropriate clocks speeds
+/// Uncomment one of below macros to select appropriate clocks frequencies
 //#define USE_MAIN_CLOCK_180MHZ 1
 #define USE_MAIN_CLOCK_72MHZ 1
 
@@ -13,15 +13,19 @@ static void SystemClock_Config(void);
 
 
 void toggleLedTask(void* params) {
-    APP_LOG_LU_MSG("Led task has been started");
+    APP_LOG_LOCK();
+    APP_LOG_MSG("System core clock: "); APP_LOG_UINT(SystemCoreClock, 10);
+    APP_LOG_UNLOCK();
 
     for( ;; ) {
         BSP_LED_Toggle(LED4);
-        vTaskDelay(1000);
+        vTaskDelay(5000);
     }
 
     vTaskDelete(NULL);
 }
+
+
 
 int main(void) {
     HAL_Init();
@@ -30,15 +34,11 @@ int main(void) {
     SystemClock_Config();
     SystemCoreClockUpdate();
     SysTick_Config(SystemCoreClock / 1000);
-
-    BSP_LED_Init(LED4);
-
     initLog();
+    BSP_LED_Init(LED4);
 
     xTaskCreate(toggleLedTask, "toggleLED", 128, NULL, 1, NULL);
 
-    int a = 0;
-    a ++;
     /* Start the RTOS scheduler, this function should not return as it causes the
     execution context to change from main() to one of the created tasks. */
     vTaskStartScheduler();

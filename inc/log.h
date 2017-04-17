@@ -2,13 +2,9 @@
 #define LOG_H_
 #include <stdint.h>
 #include <stdbool.h>
+#include "log_config.h"
 
 
-// Set value of these macros to 1 if you want to enable logging from these modules
-#define USE_APP_LOG 1
-#define USE_SD_LOG 1
-#define USE_DISPLAY_LOG 1
-#define USE_MAG3110_LOG 1
 
 
 
