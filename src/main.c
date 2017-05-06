@@ -3,14 +3,15 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "log.h"
+#include "queue.h"
+#include "mag3110.h"
+
 
 /// Uncomment one of below macros to select appropriate clocks frequencies
 //#define USE_MAIN_CLOCK_180MHZ 1
 #define USE_MAIN_CLOCK_72MHZ 1
 
 static void SystemClock_Config(void);
-
-
 
 void toggleLedTask(void* params) {
     APP_LOG_LOCK();
@@ -19,12 +20,30 @@ void toggleLedTask(void* params) {
 
     for( ;; ) {
         BSP_LED_Toggle(LED4);
-        vTaskDelay(5000);
+        vTaskDelay(300);
     }
 
     vTaskDelete(NULL);
 }
 
+const char* template = "X:%d Y:%d Z:%d T:%d\n";
+char log_buff[30];
+
+void consumerTask(void *p)
+{
+    mag3110_data_t str = {0};
+    mag3110_start();
+    for( ;; ) {
+        if(true == mag3110_get(&str))
+        {
+			sprintf(log_buff, template, str.x, str.y, str.z, str.temp);
+			APP_LOG_LU_MSG(log_buff);
+        }
+        vTaskDelay(1000);
+    }
+
+    vTaskDelete(NULL);
+}
 
 
 int main(void) {
@@ -34,16 +53,28 @@ int main(void) {
     SystemClock_Config();
     SystemCoreClockUpdate();
     SysTick_Config(SystemCoreClock / 1000);
+    HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
     initLog();
     BSP_LED_Init(LED4);
 
-    xTaskCreate(toggleLedTask, "toggleLED", 128, NULL, 1, NULL);
+//---INIT I2C and MAGNEIC FIELD DETECTOR------------//
+    bool x = false;
+    x =  init_i2c();
+    x = false;
+    x = init_mag3110(SAMPLING_80HZ, 1000);
+//--------------------------------------------------//
 
+    xTaskCreate(toggleLedTask, "toggleLED", 128, NULL, 1, NULL);
+    //consumer task shows how to read data form sensor in another task
+    xTaskCreate(consumerTask, "consumerTask", 128, NULL, 1, NULL);
     /* Start the RTOS scheduler, this function should not return as it causes the
     execution context to change from main() to one of the created tasks. */
     vTaskStartScheduler();
 
-    for(;;);
+    for(;;)
+    {
+    	//
+    }
 
     return 0;
 }
