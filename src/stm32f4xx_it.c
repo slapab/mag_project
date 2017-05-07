@@ -16,6 +16,8 @@
 #endif
 #include "stm32f4xx_it.h"
 
+#define MAG_INT1_PIN	1<<7
+
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
@@ -40,3 +42,18 @@ void SysTick_Handler(void)
 	osSystickHandler();
 #endif
 }
+
+extern volatile SemaphoreHandle_t i2c_data_ready;
+void EXTI9_5_IRQHandler(void)
+{
+	if(__HAL_GPIO_EXTI_GET_IT(MAG_INT1_PIN))
+	{
+	  __HAL_GPIO_EXTI_CLEAR_IT(MAG_INT1_PIN);
+	  xSemaphoreGiveFromISR(i2c_data_ready, NULL);
+	}
+
+	// clear all pending interrupt from 5-9
+	__HAL_GPIO_EXTI_CLEAR_IT(0x3E0);
+}
+
+
