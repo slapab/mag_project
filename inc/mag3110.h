@@ -43,9 +43,9 @@ typedef enum {
 #define TEMP_OFFSET	24
 
 typedef struct {
-	uint16_t x;
-	uint16_t y;
-	uint16_t z;
+	int16_t x;
+	int16_t y;
+	int16_t z;
 	int8_t temp;
 } mag3110_data_t;
 
