@@ -172,13 +172,13 @@ static bool mag3110_axix(mag3110_data_t *ptr)
 {
 	ptr->temp = mag3110_read_reg(DIE_TEMP) + TEMP_OFFSET;
 
-	ptr->x = ((uint16_t)mag3110_read_reg(OUT_X_MSB))<<8;
+	ptr->x = ((int16_t)mag3110_read_reg(OUT_X_MSB))<<8;
 	ptr->x |= mag3110_read_reg(OUT_X_LSB);
 
-	ptr->y = ((uint16_t)mag3110_read_reg(OUT_Y_MSB))<<8;
+	ptr->y = ((int16_t)mag3110_read_reg(OUT_Y_MSB))<<8;
 	ptr->y |= mag3110_read_reg(OUT_Y_LSB);
 
-	ptr->z = ((uint16_t)mag3110_read_reg(OUT_Z_MSB))<<8;
+	ptr->z = ((int16_t)mag3110_read_reg(OUT_Z_MSB))<<8;
 	ptr->z |= mag3110_read_reg(OUT_Z_LSB);
 
 	return true;
