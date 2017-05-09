@@ -39,6 +39,10 @@ void consumerTask(void *p)
 			sprintf(log_buff, template, str.x, str.y, str.z, str.temp);
 			APP_LOG_LU_MSG(log_buff);
         }
+        else
+        {
+        	APP_LOG_LU_MSG("No data -> check sensor connection!");
+        }
         vTaskDelay(1000);
     }
 
