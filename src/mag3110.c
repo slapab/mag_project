@@ -27,6 +27,8 @@ static QueueHandle_t i2c_read_queue;
 static TickType_t task_delay;
 static TaskHandle_t mag_task_handler;
 
+static bool init_flag = true;
+
 static uint8_t mag3110_read_reg(uint8_t addr);
 static HAL_StatusTypeDef mag3110_write_reg(uint8_t addr, uint8_t data);
 static void mag3110_task(void* params);
@@ -117,7 +119,10 @@ bool init_mag3110(mag_sampling_rate_t sample, TickType_t mag_task_delay)
 
 
 	// read and compare device factory ID
-	if(0xC4 != mag3110_read_reg(WHO_AM_I)) return false;
+	if(0xC4 != mag3110_read_reg(WHO_AM_I))
+	{
+		init_flag = false;
+	}
 
 	// set sensor sampling rate
 	switch(sample)
@@ -139,6 +144,7 @@ bool init_mag3110(mag_sampling_rate_t sample, TickType_t mag_task_delay)
 
 	//task suspend
 	vTaskSuspend(mag_task_handler);
+	init_flag = true;
 	return true;
 }
 
@@ -146,6 +152,8 @@ static uint8_t mag3110_read_reg(uint8_t addr)
 {
 	uint8_t ret = 0;
 	HAL_StatusTypeDef stat;
+
+	if(false == init_flag) return 0;
 
 	stat = HAL_I2C_Master_Transmit(&i2c_handler, (0x00FF & MAG_I2C_ADDR), &addr, 1, 10);
 	if(HAL_OK != stat)
@@ -164,8 +172,9 @@ static uint8_t mag3110_read_reg(uint8_t addr)
 static HAL_StatusTypeDef mag3110_write_reg(uint8_t addr, uint8_t data)
 {
 	uint8_t dat[2] = { addr, data };
+	if(false == init_flag) return HAL_ERROR;
 
-	return HAL_I2C_Master_Transmit(&i2c_handler, (0x00FF & MAG_I2C_ADDR), dat, 2, 10000);
+	return HAL_I2C_Master_Transmit(&i2c_handler, (0x00FF & MAG_I2C_ADDR), dat, 2, 10);
 }
 
 static bool mag3110_axix(mag3110_data_t *ptr)
@@ -220,6 +229,7 @@ bool mag3110_get(mag3110_data_t *ptr)
 
 void mag3110_start()
 {
+	if(false == init_flag) return;
 	vTaskResume(mag_task_handler);
 	// read register to invoke INT1 pin start working
 	mag3110_read_reg(OUT_X_MSB);
@@ -227,5 +237,6 @@ void mag3110_start()
 
 void mag3110_stop()
 {
+	if(false == init_flag) return;
 	vTaskSuspend(mag_task_handler);
 }
