@@ -5,11 +5,13 @@
 #include "log.h"
 #include "queue.h"
 #include "mag3110.h"
-
+#include "LCD.h"
+#include "SPI.h"
+#include "fonts.h"
 
 /// Uncomment one of below macros to select appropriate clocks frequencies
-//#define USE_MAIN_CLOCK_180MHZ 1
-#define USE_MAIN_CLOCK_72MHZ 1
+#define USE_MAIN_CLOCK_180MHZ 1
+//#define USE_MAIN_CLOCK_72MHZ 1
 
 static void SystemClock_Config(void);
 
@@ -56,10 +58,12 @@ int main(void) {
     // Configure the system clock
     SystemClock_Config();
     SystemCoreClockUpdate();
+    LCD_Init();
     SysTick_Config(SystemCoreClock / 1000);
     HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
     initLog();
     BSP_LED_Init(LED4);
+
 
 //---INIT I2C and MAGNEIC FIELD DETECTOR------------//
     bool x = false;
