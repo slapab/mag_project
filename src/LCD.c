@@ -19,6 +19,8 @@
 #define RST_SET()          HAL_GPIO_WritePin(RST_GPIO_PORT, RST_PIN, 1);
 #define RST_RESET()        HAL_GPIO_WritePin(RST_GPIO_PORT, RST_PIN, 0);
 
+static char dataBuff[50];
+
 typedef enum {
 	LCD_Landscape,
 	LCD_Portrait
@@ -292,50 +294,50 @@ void LCD_SetScene1(uint32_t Val1, uint32_t Val2, uint32_t x, uint32_t y, uint32_
 }
 
 void LCD_SetVal1(uint32_t num) {
-	char data[50];
-	sprintf(data,"%d A/m",num);
-	LCD_GetStringSize(&data, &Font24, &String_Size.width, &String_Size.height);
+//	char data[50];
+	sprintf(dataBuff,"%ld A/m",num);
+	LCD_GetStringSize(&dataBuff[0], &Font24, &String_Size.width, &String_Size.height);
 	if (Flag == 0) {
-		LCD_Puts((LCD_Options.width-String_Size.width)/2, 90, &data, &Font24, LCD_COLOR_RED, LCD_COLOR_GREEN2);
+		LCD_Puts((LCD_Options.width-String_Size.width)/2, 90, &dataBuff[0], &Font24, LCD_COLOR_RED, LCD_COLOR_GREEN2);
 	}
 	else if (Flag == 1) {
-		LCD_Puts((LCD_Options.width-String_Size.width)/2, 90, &data, &Font24, LCD_COLOR_GREEN2, LCD_COLOR_RED);
+		LCD_Puts((LCD_Options.width-String_Size.width)/2, 90, &dataBuff[0], &Font24, LCD_COLOR_GREEN2, LCD_COLOR_RED);
 	}
 }
 
 void LCD_SetVal2(uint32_t num) {
-	char data[50];
-	sprintf(data,"max = %d A/m",num);
-	LCD_GetStringSize(&data, &Font20, &String_Size.width, &String_Size.height);
-	LCD_Puts((LCD_Options.width-String_Size.width)/2, 200, &data, &Font20, LCD_COLOR_RED, LCD_COLOR_WHITE);
+//	char data[50];
+	sprintf(dataBuff,"max = %ld A/m",num);
+	LCD_GetStringSize(&dataBuff[0], &Font20, &String_Size.width, &String_Size.height);
+	LCD_Puts((LCD_Options.width-String_Size.width)/2, 200, &dataBuff[0], &Font20, LCD_COLOR_RED, LCD_COLOR_WHITE);
 }
 
 void LCD_SetX(uint32_t num) {
-	char data[50];
-	sprintf(data,"x = %d A/m",num);
-	LCD_GetStringSize(&data, &Font16, &String_Size.width, &String_Size.height);
-	LCD_Puts(70, 230, &data, &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
+//	char data[50];
+	sprintf(dataBuff,"x = %ld A/m",num);
+	LCD_GetStringSize(&dataBuff[0], &Font16, &String_Size.width, &String_Size.height);
+	LCD_Puts(70, 230, &dataBuff[0], &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 }
 
 void LCD_SetY(uint32_t num) {
-	char data[50];
-	sprintf(data,"y = %d A/m",num);
-	LCD_GetStringSize(&data, &Font16, &String_Size.width, &String_Size.height);
-	LCD_Puts(70, 246, &data, &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
+//	char data[50];
+	sprintf(dataBuff,"y = %ld A/m",num);
+	LCD_GetStringSize(&dataBuff[0], &Font16, &String_Size.width, &String_Size.height);
+	LCD_Puts(70, 246, &dataBuff[0], &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 }
 
 void LCD_SetZ(uint32_t num) {
-	char data[50];
-	sprintf(data,"z = %d A/m",num);
-	LCD_GetStringSize(&data, &Font16, &String_Size.width, &String_Size.height);
-	LCD_Puts(70, 262, &data, &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
+//	char data[50];
+	sprintf(dataBuff,"z = %ld A/m",num);
+	LCD_GetStringSize(&dataBuff[0], &Font16, &String_Size.width, &String_Size.height);
+	LCD_Puts(70, 262, &dataBuff[0], &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 }
 
 void LCD_SetTemp(uint32_t num) {
-	char data[50];
-	sprintf(data,"T = %d K",num);
-	LCD_GetStringSize(&data, &Font16, &String_Size.width, &String_Size.height);
-	LCD_Puts(70, 278, &data, &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
+//	char data[50];
+	sprintf(dataBuff,"T = %ld K",num);
+	LCD_GetStringSize(&dataBuff[0], &Font16, &String_Size.width, &String_Size.height);
+	LCD_Puts(70, 278, &dataBuff[0], &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 }
 
 void LCD_Puts(uint16_t x, uint16_t y, char *str, sFONT* font, uint32_t foreground, uint32_t background) {
