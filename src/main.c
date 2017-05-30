@@ -8,7 +8,13 @@
 #include "LCD.h"
 #include "SPI.h"
 #include "fonts.h"
+#include "sdcard.h"
+#include "fatfs.h"
 
+SD_HandleTypeDef hsd;
+HAL_SD_CardInfoTypedef SDCardInfo;
+FATFS SDFatFs;
+FIL myFile;
 /// Uncomment one of below macros to select appropriate clocks frequencies
 #define USE_MAIN_CLOCK_180MHZ 1
 //#define USE_MAIN_CLOCK_72MHZ 1
@@ -61,6 +67,11 @@ int main(void) {
     LCD_Init();
     SysTick_Config(SystemCoreClock / 1000);
     HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
+    sdcard_init( &hsd );
+    sdcard_mount( &SDFatFs, ""  );
+    sdcard_open_file( &myFile, "maggg.csv" );
+    sdcard_save2file( &myFile, 1, 2, 3 );
+    sdcard_close_file( &myFile );
     initLog();
     BSP_LED_Init(LED4);
 
