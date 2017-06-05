@@ -5,3 +5,4 @@ Release/*
 !Release/*.hex
 !Release/*.elf
 /*.xml
+/Release/
