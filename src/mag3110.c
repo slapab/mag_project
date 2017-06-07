@@ -16,6 +16,8 @@
 #include "task.h"
 //#include "stm32f4xx_hal_i2c.h"
 
+#include "signal.h"
+
 #define MAG_I2C_ADDR (0x0E<<1)
 
 volatile SemaphoreHandle_t i2c_data_ready;
@@ -25,7 +27,7 @@ static I2C_HandleTypeDef i2c_handler;
 static I2C_InitTypeDef init_type;
 static QueueHandle_t i2c_read_queue;
 static TickType_t task_delay;
-static TaskHandle_t mag_task_handler;
+/*static*/ TaskHandle_t mag_task_handler;
 
 static bool init_flag = true;
 
@@ -179,20 +181,34 @@ static HAL_StatusTypeDef mag3110_write_reg(uint8_t addr, uint8_t data)
 
 static bool mag3110_axix(mag3110_data_t *ptr)
 {
-	ptr->temp = mag3110_read_reg(DIE_TEMP) + TEMP_OFFSET;
+    static uint8_t axisBuff[6] = {0};
+    if (HAL_OK == HAL_I2C_Mem_Read(&i2c_handler, MAG_I2C_ADDR, OUT_X_MSB, 1, &axisBuff[0], 6, 100)) {
+        ptr->x = (int16_t)((int16_t)axisBuff[0] << 8) | (int16_t)axisBuff[1];
+        ptr->y = (int16_t)((int16_t)axisBuff[2] << 8) | (int16_t)axisBuff[3];
+        ptr->z = (int16_t)((int16_t)axisBuff[4] << 8) | (int16_t)axisBuff[5];
 
-	ptr->x = ((int16_t)mag3110_read_reg(OUT_X_MSB))<<8;
-	ptr->x |= mag3110_read_reg(OUT_X_LSB);
+        // now read the temperature
+        if (HAL_OK == HAL_I2C_Mem_Read(&i2c_handler, MAG_I2C_ADDR, DIE_TEMP, 1, &axisBuff[0], 1, 100)) {
+            ptr->temp = (int8_t)axisBuff[0] + (int8_t)TEMP_OFFSET;
+        }
 
-	ptr->y = ((int16_t)mag3110_read_reg(OUT_Y_MSB))<<8;
-	ptr->y |= mag3110_read_reg(OUT_Y_LSB);
+        return true;
+    }
+//	ptr->temp = mag3110_read_reg(DIE_TEMP) + TEMP_OFFSET;
+//
+//	ptr->x = ((int16_t)mag3110_read_reg(OUT_X_MSB))<<8;
+//	ptr->x |= mag3110_read_reg(OUT_X_LSB);
+//
+//	ptr->y = ((int16_t)mag3110_read_reg(OUT_Y_MSB))<<8;
+//	ptr->y |= mag3110_read_reg(OUT_Y_LSB);
+//
+//	ptr->z = ((int16_t)mag3110_read_reg(OUT_Z_MSB))<<8;
+//	ptr->z |= mag3110_read_reg(OUT_Z_LSB);
 
-	ptr->z = ((int16_t)mag3110_read_reg(OUT_Z_MSB))<<8;
-	ptr->z |= mag3110_read_reg(OUT_Z_LSB);
-
-	return true;
+	return false;
 }
 
+volatile sig_atomic_t waitingIts = 0;
 static void mag3110_task(void* params)
 {
 	mag3110_data_t data_struct = {0};
@@ -200,19 +216,26 @@ static void mag3110_task(void* params)
 	while(1)
 	{
 		// wait until INT1 pin of MAG3110 indicate that data are ready (see stm32f4xx_it.c)
-		xSemaphoreTake(i2c_data_ready, portMAX_DELAY);
-		if(mag3110_axix(&data_struct))
-		{
-			if(0 == uxQueueSpacesAvailable(i2c_read_queue))
-			{
-				// remove the oldest data in queue
-				xQueueReceive(i2c_read_queue, NULL, portMAX_DELAY);
-			}
-			// insert the newest data queue tail
-			xQueueSendToBack(i2c_read_queue, &data_struct, portMAX_DELAY);
-		}
-		//task delay
-		vTaskDelay(task_delay);
+//		xSemaphoreTake(i2c_data_ready, portMAX_DELAY);
+//	    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+	    if (waitingIts > 0) {
+            if(mag3110_axix(&data_struct))
+            {
+                if(0 == uxQueueSpacesAvailable(i2c_read_queue))
+                {
+                    mag3110_data_t temp;
+                    // remove the oldest data in queue
+                    xQueueReceive(i2c_read_queue, &temp, portMAX_DELAY);
+                }
+                // insert the newest data queue tail
+                xQueueSendToBack(i2c_read_queue, &data_struct, portMAX_DELAY);
+                --waitingIts;
+            }
+            //task delay
+    //		vTaskDelay(task_delay);
+	    } else {
+	        vTaskDelay(pdMS_TO_TICKS(15));
+	    }
 	}
 
 
@@ -221,7 +244,7 @@ static void mag3110_task(void* params)
 // if ret false that no data available
 bool mag3110_get(mag3110_data_t *ptr)
 {
-	if(pdTRUE != xQueueReceive(i2c_read_queue, ptr, 0))
+	if(pdTRUE != xQueueReceive(i2c_read_queue, ptr, portMAX_DELAY))
 		return false;
 
 	return true;

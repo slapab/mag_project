@@ -16,6 +16,8 @@
 #endif
 #include "stm32f4xx_it.h"
 
+#include "signal.h"
+
 #define MAG_INT1_PIN	1<<7
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,17 +45,27 @@ void SysTick_Handler(void)
 #endif
 }
 
-extern volatile SemaphoreHandle_t i2c_data_ready;
+//extern volatile SemaphoreHandle_t i2c_data_ready;
+extern TaskHandle_t mag_task_handler;
+extern volatile sig_atomic_t waitingIts;
 void EXTI9_5_IRQHandler(void)
 {
 	if(__HAL_GPIO_EXTI_GET_IT(MAG_INT1_PIN))
 	{
 	  __HAL_GPIO_EXTI_CLEAR_IT(MAG_INT1_PIN);
-	  xSemaphoreGiveFromISR(i2c_data_ready, NULL);
+//	  if (errQUEUE_FULL == xSemaphoreGiveFromISR(i2c_data_ready, NULL)) {
+//	      while(1) {;}
+//	  }
+         /* Notify the task that there are data to read */
+//        configASSERT(NULL != mag_task_handler);
+//        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+//        vTaskNotifyGiveFromISR(mag_task_handler, &xHigherPriorityTaskWoken);
+//        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+	  ++waitingIts;
 	}
 
 	// clear all pending interrupt from 5-9
-	__HAL_GPIO_EXTI_CLEAR_IT(0x3E0);
+//	__HAL_GPIO_EXTI_CLEAR_IT(0x3E0);
 }
 
 

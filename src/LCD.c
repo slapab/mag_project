@@ -10,6 +10,15 @@
 #include "ili9341.h"
 #include "stm32f4xx_hal.h"
 #include "fonts.h"
+#include "log.h"
+#include "log.h"
+
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "math.h"
+
+
 
 
 #define WRX_SET()          HAL_GPIO_WritePin(WRX_GPIO_PORT, WRX_PIN, 1);
@@ -49,20 +58,100 @@ String_Size_t String_Size;
 uint8_t Data_From_Puts = 0;
 int Flag = 0;
 
+static int32_t calcTotalVector(int32_t x, int32_t y, int32_t z);
+
+#define MEASUREMENTS_QUEUE_SIZE         10
+static QueueHandle_t measurementsQueue;
+void lcd_task_routine(void* param) {
+    mag3110_data_t tempData = {0};
+    int32_t maxTotal = 0;
+    int32_t minTotal = 0;
+    int32_t avgX = 0;
+    int32_t avgY = 0;
+    int32_t avgZ = 0;
+    int16_t avgTemp = 0;
+
+    LCD_Fill(LCD_COLOR_WHITE);
+    LCD_Circle(LCD_COLOR_GREEN);
+    LCD_SetScene1(0, 0, 0, 0, 0 ,0);
+
+    uint8_t avgIterCount = 0;
+//    while(1) { ;}
+    for(;;) {
+        if (pdTRUE == xQueueReceive(measurementsQueue, &tempData, 100)) {
+            avgX += tempData.x;
+            avgY += tempData.y;
+            avgZ += tempData.z;
+            avgTemp += tempData.temp;
+
+            ++avgIterCount;
+            if (avgIterCount >= MEASUREMENTS_QUEUE_SIZE) {
+                avgX /= MEASUREMENTS_QUEUE_SIZE;
+                avgY /= MEASUREMENTS_QUEUE_SIZE;
+                avgZ /= MEASUREMENTS_QUEUE_SIZE;
+                avgTemp /= MEASUREMENTS_QUEUE_SIZE;
+                const int32_t currentTotalValue = calcTotalVector(avgX, avgY, avgZ);
+                if (currentTotalValue > maxTotal) {
+                    maxTotal = currentTotalValue;
+                } else if (currentTotalValue < minTotal) {
+                    minTotal = currentTotalValue;
+                }
+
+//                for (uint32_t i = 0 ; i < 18000000; ++i) {volatile int i = 0;}
+                LCD_SetVal1(currentTotalValue);
+                LCD_SetVal2(maxTotal);
+//
+                LCD_SetX(avgX);
+                LCD_SetY(avgY);
+                LCD_SetZ(avgZ);
+                LCD_SetTemp(avgTemp);
+
+                avgIterCount = 0;
+                avgX = 0;
+                avgY = 0;
+                avgZ = 0;
+                avgTemp = 0;
+            }
+        } else {
+            taskYIELD();
+        }
+    }
+}
+
+static int32_t calcTotalVector(int32_t x, int32_t y, int32_t z) {
+    // calculate the total vector of x and y
+    const float xySq = (float)(x*x) + (float)(y*y);
+    // calculate the total vector
+    const float totalSq = xySq + (float)(z*z);
+    return (int32_t)sqrt(totalSq);
+}
+
+void LCD_PutMeasurement(const mag3110_data_t* const pMeasurement) {
+    static mag3110_data_t tempData = {0};
+    if (NULL != pMeasurement && NULL != measurementsQueue) {
+        if (0 == uxQueueSpacesAvailable(measurementsQueue)) {
+            xQueueReceive(measurementsQueue, &tempData, 100);
+        }
+        xQueueSendToBack(measurementsQueue, pMeasurement, 100);
+    }
+}
 
 void LCD_Init(void) {
-	GPIO_Init();
-	CS_SET();
-	DMA_Init();
-	SPI_Init();
-	LCD_InitLCD();
-	LCD_x = LCD_y = 0;
-	LCD_Options.width = LCD_WIDTH;
-	LCD_Options.height = LCD_HEIGHT;
-	LCD_Options.orientation = LCD_Portrait;
-	LCD_Fill(LCD_COLOR_WHITE);
-	LCD_Circle(LCD_COLOR_GREEN);
-	LCD_SetScene1(120, 500, 60, 50, 60 ,300);
+    GPIO_Init();
+    CS_SET();
+    DMA_Init();
+    SPI_Init();
+
+    HAL_Delay(20);
+
+    LCD_InitLCD();
+    LCD_x = LCD_y = 0;
+    LCD_Options.width = LCD_WIDTH;
+    LCD_Options.height = LCD_HEIGHT;
+    LCD_Options.orientation = LCD_Portrait;
+
+    measurementsQueue = xQueueCreate(MEASUREMENTS_QUEUE_SIZE, sizeof(mag3110_data_t));
+    configASSERT(NULL != measurementsQueue);
 }
 
 int LCD_InitLCD(void) {
@@ -295,7 +384,7 @@ void LCD_SetScene1(uint32_t Val1, uint32_t Val2, uint32_t x, uint32_t y, uint32_
 
 void LCD_SetVal1(uint32_t num) {
 //	char data[50];
-	sprintf(dataBuff,"%ld A/m",num);
+	sprintf(dataBuff,"%ld uT",num);
 	LCD_GetStringSize(&dataBuff[0], &Font24, &String_Size.width, &String_Size.height);
 	if (Flag == 0) {
 		LCD_Puts((LCD_Options.width-String_Size.width)/2, 90, &dataBuff[0], &Font24, LCD_COLOR_RED, LCD_COLOR_GREEN2);
@@ -307,35 +396,35 @@ void LCD_SetVal1(uint32_t num) {
 
 void LCD_SetVal2(uint32_t num) {
 //	char data[50];
-	sprintf(dataBuff,"max = %ld A/m",num);
+	sprintf(dataBuff,"max = %ld uT",num);
 	LCD_GetStringSize(&dataBuff[0], &Font20, &String_Size.width, &String_Size.height);
 	LCD_Puts((LCD_Options.width-String_Size.width)/2, 200, &dataBuff[0], &Font20, LCD_COLOR_RED, LCD_COLOR_WHITE);
 }
 
-void LCD_SetX(uint32_t num) {
+void LCD_SetX(int32_t num) {
 //	char data[50];
-	sprintf(dataBuff,"x = %ld A/m",num);
+	sprintf(dataBuff,"x = %ld uT",num);
 	LCD_GetStringSize(&dataBuff[0], &Font16, &String_Size.width, &String_Size.height);
 	LCD_Puts(70, 230, &dataBuff[0], &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 }
 
-void LCD_SetY(uint32_t num) {
+void LCD_SetY(int32_t num) {
 //	char data[50];
-	sprintf(dataBuff,"y = %ld A/m",num);
+	sprintf(dataBuff,"y = %ld uT",num);
 	LCD_GetStringSize(&dataBuff[0], &Font16, &String_Size.width, &String_Size.height);
 	LCD_Puts(70, 246, &dataBuff[0], &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 }
 
-void LCD_SetZ(uint32_t num) {
+void LCD_SetZ(int32_t num) {
 //	char data[50];
-	sprintf(dataBuff,"z = %ld A/m",num);
+	sprintf(dataBuff,"z = %ld uT",num);
 	LCD_GetStringSize(&dataBuff[0], &Font16, &String_Size.width, &String_Size.height);
 	LCD_Puts(70, 262, &dataBuff[0], &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 }
 
-void LCD_SetTemp(uint32_t num) {
+void LCD_SetTemp(int32_t num) {
 //	char data[50];
-	sprintf(dataBuff,"T = %ld K",num);
+	sprintf(dataBuff,"T = %ld C",num);
 	LCD_GetStringSize(&dataBuff[0], &Font16, &String_Size.width, &String_Size.height);
 	LCD_Puts(70, 278, &dataBuff[0], &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 }

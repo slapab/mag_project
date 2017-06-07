@@ -44,14 +44,19 @@ void consumerTask(void *p)
     for( ;; ) {
         if(true == mag3110_get(&str))
         {
-			sprintf(log_buff, template, str.x, str.y, str.z, str.temp);
-			APP_LOG_LU_MSG(log_buff);
+            // put to the LCD task
+            LCD_PutMeasurement(&str);
+            // put to the LOG
+            sprintf(log_buff, template, str.x, str.y, str.z, str.temp);
+            APP_LOG_LU_MSG(log_buff);
+
+            // save to the SD card
         }
         else
         {
         	APP_LOG_LU_MSG("No data -> check sensor connection!");
         }
-        vTaskDelay(1000);
+//        vTaskDelay(1000);
     }
 
     vTaskDelete(NULL);
@@ -64,25 +69,30 @@ int main(void) {
     // Configure the system clock
     SystemClock_Config();
     SystemCoreClockUpdate();
-    LCD_Init();
     SysTick_Config(SystemCoreClock / 1000);
     HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
+    HAL_Delay(50);
+
+    BSP_LED_Init(LED4);
+
     sdcard_init( &hsd );
     sdcard_mount( &SDFatFs, ""  );
     sdcard_open_file( &myFile, "maggg.csv" );
     sdcard_save2file( &myFile, 1, 2, 3 );
     sdcard_close_file( &myFile );
+
+    LCD_Init();
+
     initLog();
-    BSP_LED_Init(LED4);
-
-
 //---INIT I2C and MAGNEIC FIELD DETECTOR------------//
-    bool x = false;
-    x =  init_i2c();
+    init_i2c();
+    bool x = init_mag3110(SAMPLING_80HZ, 1000);
     x = false;
-    x = init_mag3110(SAMPLING_80HZ, 1000);
-//--------------------------------------------------//
 
+//--------------------------------------------------//
+    if (pdPASS != xTaskCreate(lcd_task_routine, "lcdTask", 2048, NULL, 1, NULL)) {
+//            DISP_LOG_LU_MSG("Fatal error. Couldn't create task. Aborting");
+    }
     xTaskCreate(toggleLedTask, "toggleLED", 128, NULL, 1, NULL);
     //consumer task shows how to read data form sensor in another task
     xTaskCreate(consumerTask, "consumerTask", 128, NULL, 1, NULL);

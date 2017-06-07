@@ -56,7 +56,8 @@ static void logTask(void* context) {
                     usartLogHandle.Instance->DR = tempBuff[el];
                 }
             } else {
-                taskYIELD();
+                vTaskDelay(pdMS_TO_TICKS(5));
+//                taskYIELD();
             }
         } // mutex taken
     }

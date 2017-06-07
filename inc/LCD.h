@@ -61,6 +61,7 @@
 #define LCD_H_
 
 #include "fonts.h"
+#include "mag3110.h"
 
 
 #define LCD_WIDTH  240
@@ -82,6 +83,7 @@
 #define LCD_COLOR_BROWN			0xBBCA
 #define LCD_TRANSPARENT			0x80000000
 
+
 typedef enum {
 	LCD_Orientation_Portrait_1,
 	LCD_Orientation_Portrait_2,
@@ -89,15 +91,16 @@ typedef enum {
 	LCD_Orientation_Landscape_2
 } LCD_Orientation_t;
 
+void lcd_task_routine(void* param);
 void LCD_Init(void);
 int LCD_InitLCD(void);
 void LCD_SetScene1(uint32_t Val1, uint32_t Val2, uint32_t x, uint32_t y, uint32_t z, uint32_t T);
 void LCD_SetVal1(uint32_t num);
 void LCD_SetVal2(uint32_t num);
-void LCD_SetX(uint32_t num);
-void LCD_SetY(uint32_t num);
-void LCD_SetZ(uint32_t num);
-void LCD_SetTemp(uint32_t num);
+void LCD_SetX(int32_t num);
+void LCD_SetY(int32_t num);
+void LCD_SetZ(int32_t num);
+void LCD_SetTemp(int32_t num);
 void LCD_SendData(uint8_t data);
 void LCD_SendCommand(uint8_t data);
 void LCD_SetCursor(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
@@ -116,4 +119,5 @@ void LCD_DisplayOn(void);
 void LCD_DisplayOff(void);
 void Delay(volatile unsigned int delay);
 
+void LCD_PutMeasurement(const mag3110_data_t* const pMeasurement);
 #endif /* LCD_H_ */
