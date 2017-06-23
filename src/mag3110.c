@@ -16,6 +16,8 @@
 #include "task.h"
 //#include "stm32f4xx_hal_i2c.h"
 
+#include "log.h"
+
 #include "signal.h"
 
 #define MAG_I2C_ADDR (0x0E<<1)
@@ -131,7 +133,8 @@ bool init_mag3110(mag_sampling_rate_t sample, TickType_t mag_task_delay)
 	{
 		default:
 		case SAMPLING_80HZ:
-			if(HAL_OK != mag3110_write_reg(CTRL_REG2, 0x80)) return false;
+		    // elso set RAW to 1 (no offset calculation will be performed
+			if(HAL_OK != mag3110_write_reg(CTRL_REG2, 0x80 | (1 << 5))) return false;
 			if(HAL_OK != mag3110_write_reg(CTRL_REG1, 0x01)) return false;
 			break;
 
@@ -262,4 +265,94 @@ void mag3110_stop()
 {
 	if(false == init_flag) return;
 	vTaskSuspend(mag_task_handler);
+}
+
+void mag3110_clearFifo(void) {
+    xQueueReset(i2c_read_queue);
+}
+
+
+void mag3110_compensate(void) {
+    if (NULL != mag_task_handler) {
+        const eTaskState orgTaskState = eTaskGetState(mag_task_handler);
+
+        mag3110_data_t tempDataHolder = {0};
+        int32_t avgx = 0;
+        int32_t avgy = 0;
+        int32_t avgz = 0;
+
+        mag3110_stop();
+        mag3110_clearFifo();
+
+        // read ctrl2 register
+        uint8_t reg_ctrl2 = mag3110_read_reg(CTRL_REG2);
+        // set the RAW bit - measurements will not use offsets registers
+        reg_ctrl2 |= (1 << 5);
+        if (HAL_OK != mag3110_write_reg(CTRL_REG2, reg_ctrl2)) {
+            MAG_LOG_LU_MSG("Unable to set RAW bit.");
+        }
+
+        mag3110_start();
+        const int avgSamples = 80;
+        for (int i = avgSamples; i--;) {
+            mag3110_get(&tempDataHolder);
+            avgx += tempDataHolder.x;
+            avgy += tempDataHolder.y;
+            avgz += tempDataHolder.z;
+        }
+        mag3110_stop();
+        mag3110_clearFifo();
+
+        avgx /= avgSamples;
+        avgy /= avgSamples;
+        avgz /= avgSamples;
+
+
+        MAG_LOG_LOCK();
+        MAG_LOG_MSG("Writing offsets x, y, z: ");
+        MAG_LOG_INT((int16_t)avgx, 10); MAG_LOG_MSG(", ");
+        MAG_LOG_INT((int16_t)avgy, 10); MAG_LOG_MSG(", ");
+        MAG_LOG_INT((int16_t)avgz, 10);
+        MAG_LOG_NL(); MAG_LOG_UNLOCK();
+
+        // put device in standby mode
+        uint8_t reg_ctrl1 = mag3110_read_reg(CTRL_REG1);
+        reg_ctrl1 &= ~(1 << 0);
+        if (HAL_OK != mag3110_write_reg(CTRL_REG1, reg_ctrl1)) {
+            MAG_LOG_LU_MSG("Unable to put device in standby mode");
+        }
+        HAL_Delay(50);
+
+        // Write offsets to the appropriate register
+        if (HAL_OK != mag3110_write_reg(OFF_X_MSB, (uint8_t)((avgx >> 7)))       ||
+                HAL_OK != mag3110_write_reg(OFF_X_LSB, (uint8_t)(((avgx << 1) & 0xFF))) ||
+                HAL_OK != mag3110_write_reg(OFF_Y_MSB, (uint8_t)((avgy >> 7)))   ||
+                HAL_OK != mag3110_write_reg(OFF_Y_LSB, (uint8_t)(((avgy << 1) & 0xFF))) ||
+                HAL_OK != mag3110_write_reg(OFF_Z_MSB, (uint8_t)((avgz >> 7)))   ||
+                HAL_OK != mag3110_write_reg(OFF_Z_LSB, (uint8_t)(((avgz << 1) & 0xFF))) ) {
+            MAG_LOG_LU_MSG("Couldn't write offsets registers");
+        }
+
+        // clear RAW bit -> this will use offset registers before update output registers
+        reg_ctrl2 &= ~(1 << 5);
+        // set also the auto reset bit -> it will probably bring the sensor to live if it will be in very strong field
+        // this shouldn't reset just written offset registers
+        reg_ctrl2 |= (1 << 7);
+        if (HAL_OK != mag3110_write_reg(CTRL_REG2, reg_ctrl2)) {
+            MAG_LOG_LU_MSG("Unable to clear RAW bit.");
+        }
+
+        // Put device in Active mode
+        reg_ctrl1 |= (1 << 0);
+        if (HAL_OK != mag3110_write_reg(CTRL_REG1, reg_ctrl1)) {
+            MAG_LOG_LU_MSG("Unable to put device in active mode again.");
+        }
+        HAL_Delay(50);
+
+        // restore measurements if were enabled
+        if (eSuspended != orgTaskState) {
+            mag3110_start();
+        }
+    }
+
 }

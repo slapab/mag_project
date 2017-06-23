@@ -79,9 +79,26 @@ void lcd_task_routine(void* param) {
 //    while(1) { ;}
     for(;;) {
         if (pdTRUE == xQueueReceive(measurementsQueue, &tempData, 100)) {
-            avgX += tempData.x;
-            avgY += tempData.y;
-            avgZ += tempData.z;
+            int8_t part = tempData.x % 10;
+            if (part > 5) {
+                avgX += (tempData.x / 10) + 1;
+            } else {
+                avgX += tempData.x / 10;
+            }
+
+            part = tempData.y % 10;
+            if (part > 5) {
+                avgY += (tempData.y / 10) + 1;
+            } else {
+                avgY += tempData.y / 10;
+            }
+            part = tempData.z % 10;
+            if (part > 5) {
+                avgZ += (tempData.z / 10) + 1;
+            } else {
+                avgZ += tempData.z / 10;
+            }
+
             avgTemp += tempData.temp;
 
             ++avgIterCount;
@@ -384,7 +401,7 @@ void LCD_SetScene1(uint32_t Val1, uint32_t Val2, uint32_t x, uint32_t y, uint32_
 
 void LCD_SetVal1(uint32_t num) {
 //	char data[50];
-	sprintf(dataBuff,"%ld uT",num);
+	sprintf(dataBuff," %ld uT ",num);
 	LCD_GetStringSize(&dataBuff[0], &Font24, &String_Size.width, &String_Size.height);
 	if (Flag == 0) {
 		LCD_Puts((LCD_Options.width-String_Size.width)/2, 90, &dataBuff[0], &Font24, LCD_COLOR_RED, LCD_COLOR_GREEN2);
@@ -396,35 +413,35 @@ void LCD_SetVal1(uint32_t num) {
 
 void LCD_SetVal2(uint32_t num) {
 //	char data[50];
-	sprintf(dataBuff,"max = %ld uT",num);
+	sprintf(dataBuff," max = %ld uT ",num);
 	LCD_GetStringSize(&dataBuff[0], &Font20, &String_Size.width, &String_Size.height);
 	LCD_Puts((LCD_Options.width-String_Size.width)/2, 200, &dataBuff[0], &Font20, LCD_COLOR_RED, LCD_COLOR_WHITE);
 }
 
 void LCD_SetX(int32_t num) {
 //	char data[50];
-	sprintf(dataBuff,"x = %ld uT",num);
+	sprintf(dataBuff,"x = %ld uT    ",num);
 	LCD_GetStringSize(&dataBuff[0], &Font16, &String_Size.width, &String_Size.height);
 	LCD_Puts(70, 230, &dataBuff[0], &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 }
 
 void LCD_SetY(int32_t num) {
 //	char data[50];
-	sprintf(dataBuff,"y = %ld uT",num);
+	sprintf(dataBuff,"y = %ld uT    ",num);
 	LCD_GetStringSize(&dataBuff[0], &Font16, &String_Size.width, &String_Size.height);
 	LCD_Puts(70, 246, &dataBuff[0], &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 }
 
 void LCD_SetZ(int32_t num) {
 //	char data[50];
-	sprintf(dataBuff,"z = %ld uT",num);
+	sprintf(dataBuff,"z = %ld uT    ",num);
 	LCD_GetStringSize(&dataBuff[0], &Font16, &String_Size.width, &String_Size.height);
 	LCD_Puts(70, 262, &dataBuff[0], &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 }
 
 void LCD_SetTemp(int32_t num) {
 //	char data[50];
-	sprintf(dataBuff,"T = %ld C",num);
+	sprintf(dataBuff,"T = %ld C  ",num);
 	LCD_GetStringSize(&dataBuff[0], &Font16, &String_Size.width, &String_Size.height);
 	LCD_Puts(70, 278, &dataBuff[0], &Font16, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 }

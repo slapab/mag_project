@@ -34,29 +34,70 @@ void toggleLedTask(void* params) {
     vTaskDelete(NULL);
 }
 
-const char* template = "X:%d Y:%d Z:%d T:%d\n";
+const char* template = "%ld, X:%d, \t Y:%d, \t Z:%d, \t T:%d";
 char log_buff[30];
 
 void consumerTask(void *p)
 {
     mag3110_data_t str = {0};
     mag3110_start();
+    bool measurementIsOn = false;
     for( ;; ) {
-        if(true == mag3110_get(&str))
-        {
-            // put to the LCD task
-            LCD_PutMeasurement(&str);
-            // put to the LOG
-            sprintf(log_buff, template, str.x, str.y, str.z, str.temp);
-            APP_LOG_LU_MSG(log_buff);
 
-            // save to the SD card
+        // ############################################################################################################
+        // PUSH button checking
+        // ############################################################################################################
+        if (GPIO_PIN_SET == BSP_PB_GetState(BUTTON_KEY)) {
+            bool needCompensate = false;
+
+            const uint32_t stp = xTaskGetTickCount();
+            while (GPIO_PIN_SET == BSP_PB_GetState(BUTTON_KEY)) {
+                // If user want's to turn on compensation
+                if (xTaskGetTickCount() - stp >= 2000) {
+                    needCompensate = true;
+                    mag3110_compensate();
+                    APP_LOG_LU_MSG("Compensation registers has been updated.");
+                    break;
+                }
+                vTaskDelay(25);
+            }
+
+            // Do only when user wants only to change the measurement state
+            if (false == needCompensate) {
+                if (true == measurementIsOn) {
+                    APP_LOG_LU_MSG("Measurements have been stopped.");
+                    measurementIsOn = false;
+                    mag3110_stop();
+                    mag3110_clearFifo();
+                } else {
+                    APP_LOG_LU_MSG("Measurements have been started.");
+                    measurementIsOn = true;
+                    mag3110_start();
+                }
+            } else {
+                // Wait until user releases the push button
+                while (GPIO_PIN_SET == BSP_PB_GetState(BUTTON_KEY)) {
+                    vTaskDelay(25);
+                }
+            }
         }
-        else
-        {
-        	APP_LOG_LU_MSG("No data -> check sensor connection!");
+
+        // ############################################################################################################
+        // handle measurements
+        // ############################################################################################################
+        if (true == measurementIsOn) {
+            if(true == mag3110_get(&str)) {
+                // put to the LCD task
+                LCD_PutMeasurement(&str);
+                // put to the LOG
+                sprintf(log_buff, template, xTaskGetTickCount(), str.x, str.y, str.z, str.temp);
+                APP_LOG_LU_MSG(log_buff);
+            } else {
+                APP_LOG_LU_MSG("No data -> check sensor connection!");
+            }
         }
-//        vTaskDelay(1000);
+
+        vTaskDelay(10);
     }
 
     vTaskDelete(NULL);
@@ -74,12 +115,13 @@ int main(void) {
     HAL_Delay(50);
 
     BSP_LED_Init(LED4);
+    BSP_PB_Init(BUTTON_KEY, BUTTON_MODE_GPIO);
 
-    sdcard_init( &hsd );
-    sdcard_mount( &SDFatFs, ""  );
-    sdcard_open_file( &myFile, "maggg.csv" );
-    sdcard_save2file( &myFile, 1, 2, 3 );
-    sdcard_close_file( &myFile );
+//    sdcard_init( &hsd );
+//    sdcard_mount( &SDFatFs, ""  );
+//    sdcard_open_file( &myFile, "maggg.csv" );
+//    sdcard_save2file( &myFile, 1, 2, 3 );
+//    sdcard_close_file( &myFile );
 
     LCD_Init();
 
@@ -95,7 +137,7 @@ int main(void) {
     }
     xTaskCreate(toggleLedTask, "toggleLED", 128, NULL, 1, NULL);
     //consumer task shows how to read data form sensor in another task
-    xTaskCreate(consumerTask, "consumerTask", 128, NULL, 1, NULL);
+    xTaskCreate(consumerTask, "consumerTask", 512, NULL, 1, NULL);
     /* Start the RTOS scheduler, this function should not return as it causes the
     execution context to change from main() to one of the created tasks. */
     vTaskStartScheduler();

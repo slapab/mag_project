@@ -53,8 +53,10 @@ typedef struct {
 bool init_i2c(void);
 bool init_mag3110(mag_sampling_rate_t sample, TickType_t mag_task_delay);
 bool mag3110_get(mag3110_data_t *ptr);
-void mag3110_start();
-void mag3110_stop();
+void mag3110_start(void);
+void mag3110_stop(void);
+void mag3110_clearFifo(void);
+void mag3110_compensate(void);
 
 
 #endif /* MAG3110_H_ */
